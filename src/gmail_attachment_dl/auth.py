@@ -10,7 +10,7 @@ from pathlib import Path
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google.auth.credentials import Credentials as BaseCredentials
-from google_auth_oauthlib.flow import Flow
+from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
@@ -22,18 +22,6 @@ class AuthManager:
 
     # OAuth2 scopes required for Gmail API
     SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
-
-    # Client configuration for OAuth2
-    CLIENT_CONFIG = {
-        "installed": {
-            "client_id": "YOUR_CLIENT_ID.apps.googleusercontent.com",
-            "client_secret": "YOUR_CLIENT_SECRET",
-            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-            "token_uri": "https://oauth2.googleapis.com/token",
-            "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-            "redirect_uris": ["http://localhost"],
-        }
-    }
 
     def __init__(self, credentials_dir: Path, encryption_salt: str):
         """Initialize auth manager with credentials directory and encryption salt"""
@@ -68,24 +56,44 @@ class AuthManager:
 
         if client_config_file.exists():
             # Use custom client configuration
-            flow = Flow.from_client_secrets_file(str(client_config_file), scopes=self.SCOPES, redirect_uri="http://localhost:8080")
+            flow = InstalledAppFlow.from_client_secrets_file(str(client_config_file), scopes=self.SCOPES)
         else:
-            # Use default configuration
-            print("Warning: Using default client configuration.")
-            print(f"For production use, place your client_secret.json in: {self.credentials_dir}")
-            flow = Flow.from_client_config(self.CLIENT_CONFIG, scopes=self.SCOPES, redirect_uri="http://localhost:8080")
+            # Error: client_secret.json is required
+            print("Error: client_secret.json file is required for authentication.")
+            print(f"Please place your client_secret.json in: {self.credentials_dir}")
+            print("\nTo obtain client_secret.json:")
+            print("1. Go to Google Cloud Console (https://console.cloud.google.com/)")
+            print("2. Create or select a project")
+            print("3. Enable Gmail API")
+            print("4. Create OAuth 2.0 Client ID (Application type: Desktop application)")
+            print("5. Download the JSON file as client_secret.json")
+            raise FileNotFoundError("client_secret.json not found")
 
-        # Get authorization URL
-        auth_url, _ = flow.authorization_url(access_type="offline", include_granted_scopes="true", prompt="consent", login_hint=email)
+        # Use local server to automatically handle OAuth callback
+        print(f"\nStarting authentication for: {email}")
+        print("A browser window will open for authentication...")
+        print("After completing authentication, the browser can be closed.")
 
-        print("\nPlease visit this URL to authorize the application:")
-        print(auth_url)
+        try:
+            # Run local server to receive OAuth callback
+            credentials = flow.run_local_server(host="localhost", port=8580, open_browser=True)
+            return credentials
+        except Exception as e:
+            print(f"\nAutomatic authentication failed: {e}")
+            print("Falling back to manual authentication...")
 
-        # Get authorization code from user
-        auth_code = input("\nEnter the authorization code: ").strip()
+            # Fallback to manual method
+            auth_url, _ = flow.authorization_url(prompt="consent", login_hint=email)
+            print("\nPlease visit this URL to authorize the application:")
+            print(auth_url)
+            print("\nAfter authorization, you will be redirected to localhost.")
+            print("Copy the 'code' parameter from the URL and paste it below.")
 
-        # Exchange authorization code for tokens
-        flow.fetch_token(code=auth_code)
+            # Get authorization code from user
+            auth_code = input("\nEnter the authorization code: ").strip()
+
+            # Exchange authorization code for tokens
+            flow.fetch_token(code=auth_code)
 
         return flow.credentials
 

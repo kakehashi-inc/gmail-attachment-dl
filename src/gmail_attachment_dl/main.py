@@ -23,8 +23,10 @@ def parse_args() -> argparse.Namespace:
     # Authentication mode
     parser.add_argument("--auth", metavar="EMAIL", help="Authenticate the specified email account")
 
-    # Days override
-    parser.add_argument("--days", type=int, metavar="N", help="Override the number of days to search back")
+    # Date range options
+    parser.add_argument("--days", type=int, metavar="N", help="Number of days to search back (default: from config)")
+    parser.add_argument("--from", dest="from_date", type=str, metavar="YYYY-MM-DD", help="Start date (format: YYYY-MM-DD)")
+    parser.add_argument("--to", dest="to_date", type=str, metavar="YYYY-MM-DD", help="End date (format: YYYY-MM-DD, default: today)")
 
     # Config file path
     parser.add_argument("--config", type=Path, default=Path("config.json"), help="Path to configuration file (default: config.json)")
@@ -33,6 +35,52 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
 
     return parser.parse_args()
+
+
+def parse_date_range(args: argparse.Namespace, config_manager: ConfigManager) -> tuple[datetime, datetime]:
+    """Parse and validate date range arguments"""
+
+    # Validate mutually exclusive arguments
+    if args.from_date and args.days:
+        raise ValueError("Cannot specify both --from and --days. Use either date range (--from/--to) or days (--days).")
+
+    # Default to today's end of day
+    end_date = datetime.now().replace(hour=23, minute=59, second=59, microsecond=999999)
+
+    # Parse --to date if provided
+    if args.to_date:
+        try:
+            to_date = datetime.strptime(args.to_date, "%Y-%m-%d")
+            end_date = to_date.replace(hour=23, minute=59, second=59, microsecond=999999)
+        except ValueError as e:
+            raise ValueError(f"Invalid date format for --to: {args.to_date}. Use YYYY-MM-DD format.") from e
+
+    # Parse --from date or calculate from --days
+    if args.from_date:
+        try:
+            from_date = datetime.strptime(args.from_date, "%Y-%m-%d")
+            start_date = from_date.replace(hour=0, minute=0, second=0, microsecond=0)
+        except ValueError as e:
+            raise ValueError(f"Invalid date format for --from: {args.from_date}. Use YYYY-MM-DD format.") from e
+
+        # Validate date range
+        if start_date > end_date:
+            raise ValueError("Start date cannot be later than end date.")
+
+    elif args.days:
+        # Convert --days to from date
+        if args.days <= 0:
+            raise ValueError("Days must be a positive number.")
+        search_days = args.days
+        start_date = end_date - timedelta(days=search_days)
+        start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+    else:
+        # Use default days from config
+        search_days = config_manager.get_default_days()
+        start_date = end_date - timedelta(days=search_days)
+        start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    return start_date, end_date
 
 
 def run_auth_mode(email: str, config_manager: Optional[ConfigManager]) -> int:
@@ -68,12 +116,12 @@ def run_auth_mode(email: str, config_manager: Optional[ConfigManager]) -> int:
 def run_download_mode(args: argparse.Namespace, config_manager: ConfigManager) -> int:
     """Run download mode for all configured accounts"""
 
-    # Determine search days
-    search_days = args.days if args.days else config_manager.get_default_days()
-
-    # Calculate date range
-    end_date = datetime.now()
-    start_date = end_date - timedelta(days=search_days)
+    # Parse date range
+    try:
+        start_date, end_date = parse_date_range(args, config_manager)
+    except ValueError as e:
+        print(f"Date parsing error: {e}", file=sys.stderr)
+        return 1
 
     print(f"Searching emails from {start_date.date()} to {end_date.date()}")
 
