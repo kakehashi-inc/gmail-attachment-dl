@@ -99,7 +99,7 @@ class ConfigManager:
                 "example@gmail.com": [
                     {"from": "invoice@.*\\.example\\.com", "subject": ["Receipt", "Invoice"], "body": "Payment.*confirmed", "attachments": ["*.pdf"]}
                 ],
-                "user@domain.com": [{"from": ["billing@service1\\.com", "noreply@service2\\.com"], "subject": "Monthly Statement", "attachments": null}],
+                "user@domain.com": [{"from": ["billing@service1\\.com", "noreply@service2\\.com"], "subject": "Monthly Statement"}],
             },
         }
 
