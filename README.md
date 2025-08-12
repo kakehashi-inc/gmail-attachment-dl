@@ -14,20 +14,98 @@ Automatically download Gmail attachments (PDFs) based on regex filters. Supports
 
 ## Installation
 
-### Using uv (Recommended)
+### Quick Install from PyPI
+
+Once published to PyPI, you can install and run easily:
 
 ```bash
-# Install globally
+# Install with uv (recommended)
+uvx gmail-attachment-dl  # Run directly without installation
+
+# Or install globally
 uv tool install gmail-attachment-dl
 
-# Or run directly without installation
-uvx gmail-attachment-dl --help
+# Or install with pip
+pip install gmail-attachment-dl
 ```
 
-### Using pip
+### Install from Source
+
+#### Prerequisites
+
+Create and activate a virtual environment:
 
 ```bash
-pip install gmail-attachment-dl
+python -m venv venv
+
+# On Windows
+.\venv\Scripts\Activate.ps1
+
+# On Linux/macOS
+source venv/bin/activate
+```
+
+### Basic Installation
+
+Install the project in editable mode:
+
+#### For Production Use
+
+```bash
+pip install -e "."
+```
+
+#### For Development
+
+Install with development tools included:
+
+```bash
+pip install -e ".[dev]"
+```
+
+### Dependencies
+
+**Core dependencies** (automatically installed):
+
+- `google-auth>=2.0.0` - Google authentication library
+- `google-auth-oauthlib>=1.0.0` - OAuth2 flow support
+- `google-auth-httplib2>=0.2.0` - HTTP transport for Google APIs
+- `google-api-python-client>=2.0.0` - Gmail API client
+- `cryptography>=41.0.0` - Token encryption
+- `click>=8.0.0` - Command-line interface
+
+**Development dependencies** (installed with `[dev]`):
+
+- `pylint` - Code linting
+- `pylint-plugin-utils` - Pylint utilities
+- `black` - Code formatting
+
+### Installation Examples
+
+#### Quick Start (Production)
+
+```bash
+# Clone and install for production use
+git clone <repository-url>
+cd gmail-attachment-dl
+python -m venv venv
+.\venv\Scripts\Activate.ps1  # Windows
+pip install -e "."
+```
+
+#### Developer Setup
+
+```bash
+# Clone and setup development environment
+git clone <repository-url>
+cd gmail-attachment-dl
+python -m venv venv
+.\venv\Scripts\Activate.ps1  # Windows
+pip install -e ".[dev]"
+
+# Run development tools
+black src/
+ruff check src/
 ```
 
 ## Setup
@@ -84,12 +162,14 @@ Create a `config.json` file (see `config.example.json` for reference):
 ```
 
 **Configuration Structure:**
+
 - Each email account has an **array of filter sets**
 - Multiple filter sets per account allow different rules
 - All conditions within a filter set must match (AND)
 - Filter sets are processed independently (OR)
 
 **Path Configuration:**
+
 - `download_base_path`: Base directory for downloads (default: same as config location)
 - `credentials_path`: Custom path for credentials storage (default: platform-specific)
 
@@ -103,11 +183,41 @@ gmail-attachment-dl --auth user@company.com
 ```
 
 This will:
+
 1. Open a browser for OAuth2 authentication
 2. Ask you to authorize the application
 3. Save encrypted credentials for future use
 
 ## Usage
+
+### Command Line Options
+
+```bash
+gmail-attachment-dl --help
+```
+
+```text
+usage: gmail-attachment-dl [-h] [--version] [--config CONFIG] [--days DAYS]
+                          [--output OUTPUT] [--auth EMAIL] [--verbose]
+
+Gmail Attachment Downloader
+
+options:
+  -h, --help       show this help message and exit
+  --version        show program's version number and exit
+  --config CONFIG  path to configuration file (default: ./config.json)
+  --days DAYS      number of days to search back (default: from config)
+  --output OUTPUT  override download directory
+  --auth EMAIL     authenticate specific email account
+  --verbose, -v    enable verbose output
+```
+
+### Command Examples
+
+```bash
+# Check version
+gmail-attachment-dl --version
+```
 
 ### Basic Usage
 
@@ -129,8 +239,9 @@ gmail-attachment-dl -v
 ```
 
 Downloaded files will be organized by:
+
 - Email account
-- Year  
+- Year
 - Date and message ID
 - Original attachment filename
 
@@ -158,17 +269,19 @@ uv run --python 3.11 gmail-attachment-dl
 Each filter set can have the following fields (all optional):
 
 - **from**: Sender email pattern (string or array of strings)
-- **to**: Recipient email pattern (string or array of strings) 
+- **to**: Recipient email pattern (string or array of strings)
 - **subject**: Subject line pattern (string or array of strings)
 - **body**: Email body pattern (string or array of strings)
 - **attachments**: Attachment filename patterns (string or array of strings)
 
 **Pattern Types:**
+
 - **Email fields** (from/to/subject/body): Full regex syntax
 - **Attachment filenames**: Wildcard patterns (`*.pdf`, `invoice_*.pdf`, etc.)
 - `null` or omitted means no filtering on that field
 
 **Matching Logic:**
+
 - Within a filter set: All specified fields must match (AND)
 - Multiple patterns in an array: Any pattern can match (OR)
 - Multiple filter sets per account: Process each independently
@@ -202,12 +315,14 @@ Each filter set can have the following fields (all optional):
 ```
 
 **Attachment Pattern Examples:**
+
 - `"*.pdf"` - All PDF files
 - `"invoice_*.pdf"` - PDFs starting with "invoice_"
 - `["*.pdf", "*.xlsx"]` - PDFs and Excel files
 - `null` or omitted - All attachments (no filtering)
 
 **Path Options:**
+
 - Relative paths: `"./downloads"` (relative to config file location)
 - Absolute paths: `"/home/user/downloads"` or `"C:\\Users\\name\\Downloads"`
 - Home directory: `"~/Downloads"` (expanded automatically)
@@ -217,7 +332,7 @@ Each filter set can have the following fields (all optional):
 
 Downloaded attachments are organized in a hierarchical structure:
 
-```
+```text
 downloads/
 ├── user@gmail.com/
 │   ├── 2025/
@@ -247,6 +362,15 @@ downloads/
 - No passwords are stored - only OAuth2 tokens
 - Each account requires individual authorization
 
+## Error Handling
+
+The tool includes comprehensive error handling for common issues:
+
+- **Authentication errors**: Automatic token refresh with fallback to re-authentication
+- **Network issues**: Retries with exponential backoff for API calls
+- **File system errors**: Proper handling of permission and disk space issues
+- **Gmail API limits**: Rate limiting and quota management
+
 ## Troubleshooting
 
 ### Token Expired
@@ -265,55 +389,69 @@ If credentials are not found, re-authenticate:
 gmail-attachment-dl --auth user@gmail.com
 ```
 
+### Configuration Issues
+
+If configuration is invalid:
+
+```bash
+# Check config file format
+gmail-attachment-dl --config /path/to/config.json --verbose
+```
+
 ### API Limits
 
 Gmail API has generous quotas (1 billion units/day), but be aware of:
+
 - 250 units per message send
 - 5 units per message read
 - 5 units per attachment download
 
 ## Development
 
-### Setup Development Environment
+### Development Environment Setup
+
+1. **Clone and setup environment:**
 
 ```bash
-# Clone repository
 git clone https://github.com/yourusername/gmail-attachment-dl.git
 cd gmail-attachment-dl
+python -m venv venv
 
-# Install with uv
-uv sync
+# Activate virtual environment
+# Windows:
+.\venv\Scripts\Activate.ps1
+# Linux/macOS:
+source venv/bin/activate
 
-# Run tests
-uv run pytest
-
-# Format code
-uv run black src/
-uv run ruff check src/
+# Install in development mode
+pip install -e ".[dev]"
 ```
 
-### Building for PyPI
+1. **Code formatting and linting:**
 
 ```bash
-# Build package
-uv build
+# Format code
+black src/
 
-# Upload to PyPI
-uv publish
+# Run linter
+ruff check src/
+
+# Type checking
+mypy src/
 ```
 
-## License
+1. **Testing during development:**
 
-MIT License - see LICENSE file for details
+```bash
+# Run tests
+pytest
 
-## Contributing
+# Run tests with coverage
+pytest --cov=src/
 
-Pull requests are welcome! Please ensure:
-- Code follows existing style
-- Tests pass
-- Documentation is updated
+# Test the CLI
+gmail-attachment-dl --help
 
-## Support
-
-For issues and questions:
-- GitHub Issues: [github.com/yourusername/gmail-attachment-dl/issues](https://github.com/yourusername/gmail-attachment-dl/issues)
+# Test with different options
+gmail-attachment-dl --config config.example.json --days 1 --verbose
+```
