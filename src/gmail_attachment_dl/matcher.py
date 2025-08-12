@@ -114,46 +114,73 @@ class EmailMatcher:
 
         query_parts = []
 
-        # Add from filter (Gmail doesn't support regex, so extract keywords)
-        if "from" in self.filters and self.filters["from"]:
-            from_filter = self.filters["from"]
-
-            if isinstance(from_filter, str):
-                # Extract domain or email parts
-                domain_match = re.search(r"@([a-zA-Z0-9.-]+)", from_filter)
-                if domain_match:
-                    query_parts.append(f"from:{domain_match.group(1)}")
-
-            elif isinstance(from_filter, list):
-                # Use first valid domain
-                for pattern in from_filter:
-                    domain_match = re.search(r"@([a-zA-Z0-9.-]+)", pattern)
-                    if domain_match:
-                        query_parts.append(f"from:{domain_match.group(1)}")
-                        break
-
-        # Add subject keywords (extract non-regex parts)
-        if "subject" in self.filters and self.filters["subject"]:
-            subject_filter = self.filters["subject"]
-
-            if isinstance(subject_filter, str):
-                # Extract alphanumeric words
-                words = re.findall(r"\b[a-zA-Z0-9]+\b", subject_filter)
-                if words:
-                    query_parts.append(f"subject:{words[0]}")
-
-            elif isinstance(subject_filter, list):
-                # Use first valid word
-                for pattern in subject_filter:
-                    words = re.findall(r"\b[a-zA-Z0-9]+\b", pattern)
-                    if words:
-                        query_parts.append(f"subject:{words[0]}")
-                        break
+        # Process all fields that support Gmail search
+        for field_name in ["from", "to", "subject", "body"]:
+            query_part = self._generate_field_query(field_name)
+            if query_part:
+                query_parts.append(query_part)
 
         # Always filter for emails with attachments
         query_parts.append("has:attachment")
 
-        return " ".join(query_parts) if query_parts else "has:attachment"
+        return " ".join(query_parts)
+
+    def _generate_field_query(self, field_name: str) -> str:
+        """Generate Gmail query part for a specific field"""
+        if field_name not in self.filters or not self.filters[field_name]:
+            return ""
+
+        field_filter = self.filters[field_name]
+
+        # Normalize to list to eliminate type branching
+        if isinstance(field_filter, str):
+            patterns = [field_filter]
+        elif isinstance(field_filter, list):
+            patterns = field_filter
+        else:
+            return ""
+
+        # Extract keywords from all patterns
+        keywords = []
+        for pattern in patterns:
+            if field_name in ["from", "to"]:
+                # Extract domain first, then fallback to keywords
+                domain_match = re.search(r"@([a-zA-Z0-9.-]+)", pattern)
+                if domain_match:
+                    domain = domain_match.group(1)
+                    if domain not in keywords:
+                        keywords.append(domain)
+                else:
+                    # Fallback to extract keywords
+                    words = re.findall(r"\b[a-zA-Z0-9]+\b", pattern)
+                    if words and words[0] not in keywords:
+                        keywords.append(words[0])
+
+            elif field_name in ["subject", "body"]:
+                # Extract alphanumeric words
+                words = re.findall(r"\b[a-zA-Z0-9]+\b", pattern)
+                if words:
+                    keyword = words[0]  # Use first valid word from each pattern
+                    if keyword not in keywords:
+                        keywords.append(keyword)
+
+        if not keywords:
+            return ""
+
+        # Generate query part
+        if len(keywords) == 1:
+            # Single keyword
+            if field_name == "body":
+                return f"{keywords[0]}"  # Body searches without field prefix
+            else:
+                return f"{field_name}:{keywords[0]}"
+        else:
+            # Multiple keywords (OR condition)
+            if field_name == "body":
+                keyword_query = " OR ".join(f"{keyword}" for keyword in keywords)
+            else:
+                keyword_query = " OR ".join(f"{field_name}:{keyword}" for keyword in keywords)
+            return f"({keyword_query})"
 
     def describe(self) -> str:
         """Get human-readable description of filters"""
