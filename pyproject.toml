@@ -38,7 +38,6 @@ Issues = "https://github.com/kakehashi-inc/gmail-attachment-dl/issues"
 dev = [
     "pylint",
     "pylint-plugin-utils",
-    "pylint-mcp",
     "black"
 ]
 build = [
