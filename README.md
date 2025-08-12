@@ -241,9 +241,6 @@ gmail-attachment-dl --days 30
 # Use custom config file
 gmail-attachment-dl --config /path/to/config.json
 
-# Override output directory (ignores config setting)
-gmail-attachment-dl --output /custom/path/downloads
-
 # Verbose output
 gmail-attachment-dl -v
 ```
