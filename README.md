@@ -138,6 +138,7 @@ Create a `config.json` file (see `config.example.json` for reference):
   "app_dir": null,
   "credentials_path": null,
   "download_base_path": null,
+  "encryption_salt": null,
   "accounts": {
     "user@gmail.com": [
       {
@@ -174,6 +175,7 @@ Create a `config.json` file (see `config.example.json` for reference):
 - `app_dir`: Application data directory (default: platform-specific)
 - `credentials_path`: Directory for credential storage (default: `{app_dir}/credentials`)
 - `download_base_path`: Base directory for downloads (default: `{app_dir}/downloads`)
+- `encryption_salt`: Salt for credential encryption
 
 **Note:** Authentication without config file saves credentials to current directory.
 
@@ -302,6 +304,7 @@ Each filter set can have the following fields (all optional):
   "app_dir": "~/my-gmail-app",
   "credentials_path": "~/.private/gmail-creds",
   "download_base_path": "~/Documents/receipts",
+  "encryption_salt": "my-custom-salt-string",
   "accounts": {
     "user@gmail.com": [
       {

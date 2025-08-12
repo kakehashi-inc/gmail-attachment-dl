@@ -109,3 +109,12 @@ class ConfigManager:
     def get_accounts(self) -> Dict[str, Any]:
         """Get account configurations"""
         return self.config_data.get("accounts", {})
+
+    def get_encryption_salt(self) -> str:
+        """Get encryption salt for credential storage"""
+        return self.config_data.get("encryption_salt", self.get_default_encryption_salt())
+
+    @staticmethod
+    def get_default_encryption_salt() -> str:
+        """Get default encryption salt for credential storage"""
+        return "gmail-attachment-dl-salt-v1"

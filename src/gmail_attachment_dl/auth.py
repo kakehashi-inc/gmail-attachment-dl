@@ -35,41 +35,30 @@ class AuthManager:
         }
     }
 
-    def __init__(self, credentials_dir: Path):
-        """Initialize auth manager with credentials directory"""
+    def __init__(self, credentials_dir: Path, encryption_salt: str):
+        """Initialize auth manager with credentials directory and encryption salt"""
         self.credentials_dir = credentials_dir
+        self.encryption_salt = encryption_salt
         self.credentials_dir.mkdir(parents=True, exist_ok=True)
 
         # Initialize encryption key
         self._init_encryption_key()
 
     def _init_encryption_key(self):
-        """Initialize or load encryption key for credential storage"""
-        key_file = self.credentials_dir / ".key"
+        """Initialize encryption key for credential storage"""
+        # Convert salt string to bytes
+        salt = self.encryption_salt.encode("utf-8")
 
-        if key_file.exists():
-            with open(key_file, "rb") as f:
-                self.cipher = Fernet(f.read())
-        else:
-            # Generate new key
-            # In production, use a more secure key derivation
-            salt = os.urandom(16)
-            kdf = PBKDF2HMAC(
-                algorithm=hashes.SHA256(),
-                length=32,
-                salt=salt,
-                iterations=100000,
-            )
-            key = base64.urlsafe_b64encode(kdf.derive(b"gmail-attachment-dl"))
-            self.cipher = Fernet(key)
+        kdf = PBKDF2HMAC(
+            algorithm=hashes.SHA256(),
+            length=32,
+            salt=salt,
+            iterations=100000,
+        )
 
-            # Save key
-            with open(key_file, "wb") as f:
-                f.write(key)
-
-            # Set restrictive permissions
-            if os.name != "nt":  # Unix-like systems
-                os.chmod(key_file, 0o600)
+        # Derive key from application-specific string
+        key = base64.urlsafe_b64encode(kdf.derive(b"gmail-attachment-dl-encryption-key-v1"))
+        self.cipher = Fernet(key)
 
     def authenticate(self, email: str) -> BaseCredentials:
         """Perform OAuth2 authentication flow"""

@@ -3,6 +3,7 @@
   "app_dir": null,
   "credentials_path": null,
   "download_base_path": null,
+  "encryption_salt": null,
   "accounts": {
     "user@gmail.com": [
       {

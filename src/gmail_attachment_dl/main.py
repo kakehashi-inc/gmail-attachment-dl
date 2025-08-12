@@ -39,13 +39,15 @@ def run_auth_mode(email: str, config_manager: Optional[ConfigManager]) -> int:
     """Run authentication mode for specified email"""
     print(f"Starting authentication for: {email}")
 
-    # Determine credentials directory based on config manager availability
+    # Determine credentials directory and encryption salt based on config manager availability
     if config_manager is not None:
         credentials_dir = config_manager.get_credentials_dir()
+        encryption_salt = config_manager.get_encryption_salt()
     else:
         credentials_dir = Path.cwd()
+        encryption_salt = ConfigManager.get_default_encryption_salt()
 
-    auth_manager = AuthManager(credentials_dir)
+    auth_manager = AuthManager(credentials_dir, encryption_salt)
 
     try:
         # Perform OAuth2 flow
@@ -89,7 +91,7 @@ def run_download_mode(args: argparse.Namespace, config_manager: ConfigManager) -
     failed_accounts = []
     total_downloaded = 0
 
-    auth_manager = AuthManager(config_manager.get_credentials_dir())
+    auth_manager = AuthManager(config_manager.get_credentials_dir(), config_manager.get_encryption_salt())
 
     accounts = config_manager.get_accounts()
 
