@@ -1,7 +1,8 @@
 {
   "default_days": 7,
-  "download_base_path": "./downloads",
+  "app_dir": null,
   "credentials_path": null,
+  "download_base_path": null,
   "accounts": {
     "user@gmail.com": [
       {

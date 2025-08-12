@@ -5,11 +5,10 @@ Main entry point for the application
 """
 
 import sys
-import json
 import argparse
 from pathlib import Path
 from datetime import datetime, timedelta
-from typing import Dict, Any
+from typing import Optional
 
 from .auth import AuthManager
 from .config import ConfigManager
@@ -30,20 +29,23 @@ def parse_args() -> argparse.Namespace:
     # Config file path
     parser.add_argument("--config", type=Path, default=Path("config.json"), help="Path to configuration file (default: config.json)")
 
-    # Output directory
-    parser.add_argument("--output", type=Path, default=None, help="Output directory for attachments (overrides config setting)")
-
     # Verbose output
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
 
     return parser.parse_args()
 
 
-def run_auth_mode(email: str, config_manager: ConfigManager) -> int:
+def run_auth_mode(email: str, config_manager: Optional[ConfigManager]) -> int:
     """Run authentication mode for specified email"""
     print(f"Starting authentication for: {email}")
 
-    auth_manager = AuthManager(config_manager.get_credentials_dir())
+    # Determine credentials directory based on config manager availability
+    if config_manager is not None:
+        credentials_dir = config_manager.get_credentials_dir()
+    else:
+        credentials_dir = Path.cwd()
+
+    auth_manager = AuthManager(credentials_dir)
 
     try:
         # Perform OAuth2 flow
@@ -53,7 +55,7 @@ def run_auth_mode(email: str, config_manager: ConfigManager) -> int:
         auth_manager.save_credentials(email, credentials)
 
         print(f"Successfully authenticated: {email}")
-        print(f"Credentials saved to: {config_manager.get_credentials_dir()}")
+        print(f"Credentials saved to: {credentials_dir}")
         return 0
 
     except Exception as e:
@@ -61,11 +63,11 @@ def run_auth_mode(email: str, config_manager: ConfigManager) -> int:
         return 1
 
 
-def run_download_mode(args: argparse.Namespace, config: Dict[str, Any], config_manager: ConfigManager) -> int:
+def run_download_mode(args: argparse.Namespace, config_manager: ConfigManager) -> int:
     """Run download mode for all configured accounts"""
 
     # Determine search days
-    search_days = args.days if args.days else config.get("default_days", 7)
+    search_days = args.days if args.days else config_manager.get_default_days()
 
     # Calculate date range
     end_date = datetime.now()
@@ -73,11 +75,8 @@ def run_download_mode(args: argparse.Namespace, config: Dict[str, Any], config_m
 
     print(f"Searching emails from {start_date.date()} to {end_date.date()}")
 
-    # Use download base path from config or command line
-    if args.output:
-        download_base = args.output
-    else:
-        download_base = config_manager.get_download_base_path()
+    # Use download base path from config
+    download_base = config_manager.get_download_base_path()
 
     print(f"Download base directory: {download_base}")
     print("-" * 50)
@@ -92,7 +91,7 @@ def run_download_mode(args: argparse.Namespace, config: Dict[str, Any], config_m
 
     auth_manager = AuthManager(config_manager.get_credentials_dir())
 
-    accounts = config.get("accounts", {})
+    accounts = config_manager.get_accounts()
 
     for email, filter_list in accounts.items():
         print(f"\nProcessing: {email}")
@@ -137,13 +136,13 @@ def run_download_mode(args: argparse.Namespace, config: Dict[str, Any], config_m
 
         except FileNotFoundError:
             failed_accounts.append((email, "Credentials not found"))
-            print(f"  Error: Credentials not found - need authentication")
+            print("  Error: Credentials not found - need authentication")
 
         except Exception as e:
             error_msg = str(e)
             if "invalid_grant" in error_msg or "Token has been expired" in error_msg:
                 failed_accounts.append((email, "Token expired"))
-                print(f"  Error: Token expired - need re-authentication")
+                print("  Error: Token expired - need re-authentication")
             else:
                 failed_accounts.append((email, error_msg))
                 print(f"  Error: {error_msg}")
@@ -178,32 +177,34 @@ def main() -> int:
     """Main entry point"""
     args = parse_args()
 
-    # Load configuration first if it exists
-    config_data = {}
-    if args.config.exists():
-        try:
-            with open(args.config, "r", encoding="utf-8") as f:
-                config_data = json.load(f)
-        except json.JSONDecodeError as e:
-            print(f"Invalid JSON in configuration file: {e}", file=sys.stderr)
-            return 1
-
-    # Create config manager with loaded data
-    config_manager = ConfigManager(args.config, config_data)
-
-    # Authentication mode
+    # Authentication mode - doesn't require existing config file
     if args.auth:
-        return run_auth_mode(args.auth, config_manager)
+        if args.config.exists():
+            # Config file exists - use configured credentials directory
+            try:
+                config_manager = ConfigManager(args.config)
+                return run_auth_mode(args.auth, config_manager)
+            except ValueError as e:
+                print(f"Configuration error: {e}", file=sys.stderr)
+                return 1
+        else:
+            # Config file doesn't exist - use current directory for authentication
+            print("Configuration file not found. Using current directory for authentication.")
+            return run_auth_mode(args.auth, None)
 
-    # Download mode
+    # Download mode - requires existing config file
+    if not args.config.exists():
+        print(f"Configuration file not found: {args.config}", file=sys.stderr)
+        print("Create a config.json file with account filters.", file=sys.stderr)
+        return 1
+
     try:
-        # Check configuration exists
-        if not args.config.exists():
-            print(f"Configuration file not found: {args.config}", file=sys.stderr)
-            print("Create a config.json file with account filters.", file=sys.stderr)
-            return 1
+        config_manager = ConfigManager(args.config)
+        return run_download_mode(args, config_manager)
 
-        return run_download_mode(args, config_data, config_manager)
+    except ValueError as e:
+        print(f"Configuration error: {e}", file=sys.stderr)
+        return 1
 
     except KeyboardInterrupt:
         print("\nInterrupted by user", file=sys.stderr)

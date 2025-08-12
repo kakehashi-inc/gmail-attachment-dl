@@ -135,8 +135,9 @@ Create a `config.json` file (see `config.example.json` for reference):
 ```json
 {
   "default_days": 7,
-  "download_base_path": "./downloads",
+  "app_dir": null,
   "credentials_path": null,
+  "download_base_path": null,
   "accounts": {
     "user@gmail.com": [
       {
@@ -170,8 +171,11 @@ Create a `config.json` file (see `config.example.json` for reference):
 
 **Path Configuration:**
 
-- `download_base_path`: Base directory for downloads (default: same as config location)
-- `credentials_path`: Custom path for credentials storage (default: platform-specific)
+- `app_dir`: Application data directory (default: platform-specific)
+- `credentials_path`: Directory for credential storage (default: `{app_dir}/credentials`)
+- `download_base_path`: Base directory for downloads (default: `{app_dir}/downloads`)
+
+**Note:** Authentication without config file saves credentials to current directory.
 
 ### 3. Authenticate Accounts
 
@@ -188,6 +192,11 @@ This will:
 2. Ask you to authorize the application
 3. Save encrypted credentials for future use
 
+**Authentication Behavior:**
+
+- **With config file**: Credentials saved to configured `credentials_path`
+- **Without config file**: Credentials saved to current directory
+
 ## Usage
 
 ### Command Line Options
@@ -198,7 +207,7 @@ gmail-attachment-dl --help
 
 ```text
 usage: gmail-attachment-dl [-h] [--version] [--config CONFIG] [--days DAYS]
-                          [--output OUTPUT] [--auth EMAIL] [--verbose]
+                          [--auth EMAIL] [--verbose]
 
 Gmail Attachment Downloader
 
@@ -207,7 +216,6 @@ options:
   --version        show program's version number and exit
   --config CONFIG  path to configuration file (default: ./config.json)
   --days DAYS      number of days to search back (default: from config)
-  --output OUTPUT  override download directory
   --auth EMAIL     authenticate specific email account
   --verbose, -v    enable verbose output
 ```
@@ -291,8 +299,9 @@ Each filter set can have the following fields (all optional):
 ```json
 {
   "default_days": 30,
-  "download_base_path": "~/Documents/receipts",
+  "app_dir": "~/my-gmail-app",
   "credentials_path": "~/.private/gmail-creds",
+  "download_base_path": "~/Documents/receipts",
   "accounts": {
     "user@gmail.com": [
       {
@@ -323,10 +332,10 @@ Each filter set can have the following fields (all optional):
 
 **Path Options:**
 
-- Relative paths: `"./downloads"` (relative to config file location)
+- Relative paths: `"./downloads"` (relative to current working directory)
 - Absolute paths: `"/home/user/downloads"` or `"C:\\Users\\name\\Downloads"`
 - Home directory: `"~/Downloads"` (expanded automatically)
-- If omitted, uses platform defaults
+- If omitted, uses `{app_dir}/subdirectory` defaults
 
 ## File Storage
 
