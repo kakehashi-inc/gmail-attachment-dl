@@ -18,19 +18,17 @@ from .matcher import EmailMatcher
 class EmailDownloader:
     """Downloads attachments from Gmail based on filters"""
 
-    def __init__(self, credentials: Credentials, output_dir: Path, email_address: str, verbose: bool = False):
+    def __init__(self, credentials: Credentials, output_dir: Path, verbose: bool = False):
         """
         Initialize downloader with Gmail service
 
         Args:
             credentials: OAuth2 credentials
             output_dir: Directory to save attachments (account-specific)
-            email_address: Email address for this account
             verbose: Enable verbose output
         """
         self.service = build("gmail", "v1", credentials=credentials)
         self.output_dir = output_dir
-        self.email_address = email_address
         self.verbose = verbose
 
         # Ensure output directory exists
@@ -88,7 +86,7 @@ class EmailDownloader:
                     continue
 
                 # Download attachments
-                count = self._download_attachments(message, email_data, matcher)
+                count = self._download_attachments(message, matcher)
                 download_count += count
 
                 if self.verbose and count > 0:
@@ -109,7 +107,7 @@ class EmailDownloader:
 
         try:
             while True:
-                results = self.service.users().messages().list(userId="me", q=query, pageToken=page_token, maxResults=100).execute()
+                results = self.service.users().messages().list(userId="me", q=query, pageToken=page_token, maxResults=100).execute()  # type: ignore # pylint: disable=no-member
 
                 if "messages" in results:
                     messages.extend(results["messages"])
@@ -127,7 +125,7 @@ class EmailDownloader:
     def _get_message(self, msg_id: str) -> Dict[str, Any]:
         """Get full message by ID"""
 
-        return self.service.users().messages().get(userId="me", id=msg_id, format="full").execute()
+        return self.service.users().messages().get(userId="me", id=msg_id, format="full").execute()  # type: ignore # pylint: disable=no-member
 
     def _extract_email_data(self, message: Dict[str, Any]) -> Dict[str, str]:
         """Extract email fields for matching"""
@@ -172,7 +170,7 @@ class EmailDownloader:
 
         return body_text
 
-    def _download_attachments(self, message: Dict[str, Any], email_data: Dict[str, str], matcher: EmailMatcher) -> int:
+    def _download_attachments(self, message: Dict[str, Any], matcher: EmailMatcher) -> int:
         """Download all attachments from message"""
 
         count = 0
@@ -209,7 +207,7 @@ class EmailDownloader:
             att_id = part["body"]["attachmentId"]
 
             try:
-                attachment = self.service.users().messages().attachments().get(userId="me", messageId=msg_id, id=att_id).execute()
+                attachment = self.service.users().messages().attachments().get(userId="me", messageId=msg_id, id=att_id).execute()  # type: ignore # pylint: disable=no-member
 
                 # Decode attachment data
                 file_data = base64.urlsafe_b64decode(attachment["data"])

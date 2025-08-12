@@ -111,7 +111,7 @@ def run_download_mode(args: argparse.Namespace, config_manager: ConfigManager) -
             account_output_dir.mkdir(parents=True, exist_ok=True)
 
             # Create downloader
-            downloader = EmailDownloader(credentials=credentials, output_dir=account_output_dir, email_address=email, verbose=args.verbose)
+            downloader = EmailDownloader(credentials=credentials, output_dir=account_output_dir, verbose=args.verbose)
 
             # Process emails with each filter set
             total_count = 0

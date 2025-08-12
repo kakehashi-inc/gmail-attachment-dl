@@ -9,11 +9,12 @@ from pathlib import Path
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
+from google.auth.credentials import Credentials as BaseCredentials
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
 
 class AuthManager:
@@ -53,7 +54,7 @@ class AuthManager:
             # Generate new key
             # In production, use a more secure key derivation
             salt = os.urandom(16)
-            kdf = PBKDF2(
+            kdf = PBKDF2HMAC(
                 algorithm=hashes.SHA256(),
                 length=32,
                 salt=salt,
@@ -70,7 +71,7 @@ class AuthManager:
             if os.name != "nt":  # Unix-like systems
                 os.chmod(key_file, 0o600)
 
-    def authenticate(self, email: str) -> Credentials:
+    def authenticate(self, email: str) -> BaseCredentials:
         """Perform OAuth2 authentication flow"""
 
         # Check if we need to load client config from file
@@ -99,17 +100,17 @@ class AuthManager:
 
         return flow.credentials
 
-    def save_credentials(self, email: str, credentials: Credentials):
+    def save_credentials(self, email: str, credentials: BaseCredentials):
         """Save encrypted credentials to file"""
 
         # Prepare credential data
         cred_data = {
-            "token": credentials.token,
-            "refresh_token": credentials.refresh_token,
-            "token_uri": credentials.token_uri,
-            "client_id": credentials.client_id,
-            "client_secret": credentials.client_secret,
-            "scopes": credentials.scopes,
+            "token": getattr(credentials, "token", None),
+            "refresh_token": getattr(credentials, "refresh_token", None),
+            "token_uri": getattr(credentials, "token_uri", None),
+            "client_id": getattr(credentials, "client_id", None),
+            "client_secret": getattr(credentials, "client_secret", None),
+            "scopes": getattr(credentials, "scopes", None),
         }
 
         # Convert to JSON and encrypt
@@ -143,7 +144,7 @@ class AuthManager:
             json_data = self.cipher.decrypt(encrypted_data).decode()
             cred_data = json.loads(json_data)
         except Exception as e:
-            raise ValueError(f"Failed to decrypt credentials: {e}")
+            raise ValueError(f"Failed to decrypt credentials: {e}") from e
 
         # Create Credentials object
         credentials = Credentials(
@@ -163,11 +164,11 @@ class AuthManager:
 
         return credentials
 
-    def verify_credentials(self, credentials: Credentials) -> bool:
+    def verify_credentials(self, credentials: BaseCredentials) -> bool:
         """Verify that credentials are valid"""
         try:
             service = build("gmail", "v1", credentials=credentials)
-            service.users().getProfile(userId="me").execute()
+            service.users().getProfile(userId="me").execute()  # type: ignore # pylint: disable=no-member
             return True
         except Exception:
             return False
