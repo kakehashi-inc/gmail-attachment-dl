@@ -1,0 +1,18 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "debugpy",
+      "request": "launch",
+      "name": "Launch Downloader",
+      "module": "gmail_attachment_dl.main",
+      "args": [
+        "--config", "${workspaceFolder}/config.json",
+        "--days", "30"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "cwd": "${workspaceFolder}"
+    }
+  ]
+}
